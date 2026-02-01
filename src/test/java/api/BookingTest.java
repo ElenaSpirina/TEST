@@ -31,7 +31,7 @@ public class BookingTest extends BaseTest {
                           "totalprice": 100,
                           "depositpaid": true,
                           "bookingdates": {
-                            "checkin": "2026-02-01",
+                            "checkin": "2026-01-01",
                             "checkout": "2026-01-10"
                           },
                           "additionalneeds": "Breakfast"
