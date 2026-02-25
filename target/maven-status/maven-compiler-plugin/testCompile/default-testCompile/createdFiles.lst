@@ -1,7 +1,4 @@
-data\AuthData.class
-data\DataTest.class
-api\BookingTest.class
-api\BaseTest.class
-model\RequestToken.class
-model\BookingDates.class
-model\BookingRequest.class
+data\DaTest.class
+data\DeTest.class
+form\FormSteps.class
+form\ValidationTests.class
