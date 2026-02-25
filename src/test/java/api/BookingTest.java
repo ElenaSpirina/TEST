@@ -2,59 +2,22 @@ package api;
 
 import io.qameta.allure.*;
 import io.qameta.allure.restassured.AllureRestAssured;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Test;
 
+import static data.AuthData.validAuth;
+import static data.DataTest.defaultBooking;
+import static data.DataTest.updatedBooking;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Epic("Booking API")
-@Feature("Full booking workflow")
+@Feature("Independent booking tests")
 public class BookingTest extends BaseTest {
 
-    private static int bookingId; // статическое поле для одного booking на всю цепочку
-    private static String token;
-
-    @Test
-    @Order(1)
-    @Story("Create booking")
-    @Severity(SeverityLevel.BLOCKER)
-    @DisplayName("Создание бронирования")
-    void createBooking() {
-        bookingId = given()
-                .filter(new AllureRestAssured())
+    private String getToken() {
+        return given()
                 .contentType("application/json")
-                .body("""
-                        {
-                          "firstname": "Elena",
-                          "lastname": "Test",
-                          "totalprice": 100,
-                          "depositpaid": true,
-                          "bookingdates": {
-                            "checkin": "2026-02-01",
-                            "checkout": "2026-01-10"
-                          },
-                          "additionalneeds": "Breakfast"
-                        }
-                        """)
-                .when()
-                .post("/booking")
-                .then()
-                .statusCode(200)
-                .body("bookingid", notNullValue())
-                .extract()
-                .path("bookingid");
-
-        // Получаем токен для Update/Delete
-        token = given()
-                .contentType("application/json")
-                .body("""
-                        {
-                          "username": "admin",
-                          "password": "password123"
-                        }
-                        """)
-                .when()
+                .body(validAuth())
                 .post("/auth")
                 .then()
                 .statusCode(200)
@@ -63,64 +26,98 @@ public class BookingTest extends BaseTest {
     }
 
     @Test
-    @Order(2)
-    @Story("Get booking")
-    @Severity(SeverityLevel.CRITICAL)
-    @DisplayName("Получение бронирования по ID")
-    void getBooking() {
-        given()
-                .filter(new AllureRestAssured())
-                .when()
-                .get("/booking/" + bookingId)
-                .then()
-                .statusCode(200)
-                .body("firstname", equalTo("Elena"))
-                .body("lastname", equalTo("QA"));
-    }
-
-    @Test
-    @Order(3)
-    @Story("Update booking")
-    @Severity(SeverityLevel.CRITICAL)
-    @DisplayName("Обновление бронирования")
-    void updateBooking() {
+    @Story("Create booking")
+    @Severity(SeverityLevel.BLOCKER)
+    void createBookingTest() {
         given()
                 .filter(new AllureRestAssured())
                 .contentType("application/json")
-                .header("Cookie", "token=" + token)
-                .body("""
-                    {
-                      "firstname": "Updated",
-                      "lastname": "User",
-                      "totalprice": 200,
-                      "depositpaid": false,
-                      "bookingdates": {
-                        "checkin": "2026-03-01",
-                        "checkout": "2026-03-10"
-                      },
-                      "additionalneeds": "Lunch"
-                    }
-                    """)
+                .body(defaultBooking())
                 .when()
-                .put("/booking/" + bookingId)
+                .post("/booking")
                 .then()
                 .statusCode(200)
-                .body("firstname", equalTo("Updated"))
-                .body("lastname", equalTo("User"));
+                .body("booking.firstname", equalTo(defaultBooking().getFirstname()))
+                .body("booking.lastname", equalTo(defaultBooking().getLastname()));
     }
 
     @Test
-    @Order(4)
-    @Story("Delete booking")
-    @Severity(SeverityLevel.BLOCKER)
-    @DisplayName("Удаление бронирования")
-    void deleteBooking() {
+    @Story("Get booking")
+    @Severity(SeverityLevel.CRITICAL)
+    void getBookingTest() {
+
+        int id = given()
+                .contentType("application/json")
+                .body(defaultBooking())
+                .post("/booking")
+                .then()
+                .extract()
+                .path("bookingid");
+
         given()
                 .filter(new AllureRestAssured())
-                .header("Cookie", "token=" + token)
                 .when()
-                .delete("/booking/" + bookingId)
+                .get("/booking/" + id)
+                .then()
+                .statusCode(200)
+                .body("firstname", equalTo(defaultBooking().getFirstname()))
+                .body("lastname", equalTo(defaultBooking().getLastname()));
+    }
+
+    @Test
+    @Story("Update booking")
+    @Severity(SeverityLevel.CRITICAL)
+    void updateBookingTest() {
+
+        int id = given()
+                .contentType("application/json")
+                .body(defaultBooking())
+                .post("/booking")
+                .then()
+                .extract()
+                .path("bookingid");
+
+        given()
+                .filter(new AllureRestAssured())
+                .contentType("application/json")
+                .cookie("token", getToken())
+                .body(updatedBooking())
+                .when()
+                .put("/booking/" + id)
+                .then()
+                .statusCode(200)
+                .body("firstname", equalTo(updatedBooking().getFirstname()))
+                .body("lastname", equalTo(updatedBooking().getLastname()));
+    }
+
+    @Test
+    @Story("Delete booking")
+    @Severity(SeverityLevel.BLOCKER)
+    void deleteBookingTest() {
+
+        int id = given()
+                .contentType("application/json")
+                .body(defaultBooking())
+                .post("/booking")
+                .then()
+                .extract()
+                .path("bookingid");
+
+        String token = getToken();
+
+        given()
+                .filter(new AllureRestAssured())
+                .cookie("token", token)
+                .when()
+                .delete("/booking/" + id)
                 .then()
                 .statusCode(201);
+
+        // Проверяем, что удалено
+        given()
+                .when()
+                .get("/booking/" + id)
+                .then()
+                .statusCode(404);
     }
 }
